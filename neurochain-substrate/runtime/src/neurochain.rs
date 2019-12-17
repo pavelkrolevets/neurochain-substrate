@@ -3,14 +3,15 @@ use system::ensure_signed;
 use runtime_primitives::traits::{As, Hash};
 use parity_codec::{Encode, Decode};
 
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct NN_Model<Hash, AccountId> {
+pub struct NN_Model<Hash, Balance> {
     id: Hash,
-    Creator: AccountId,
-    Weights: map u64=>u64,
-    Intercept: map u64=>u64,
-    LearningRate: u64;
+    Weights: u64,
+    Intercept: u64,
+    LearningRate: u64,
+    Bounty: Balance,
 }
 
 pub trait Trait: balances::Trait {
@@ -19,15 +20,13 @@ pub trait Trait: balances::Trait {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Neurochain {
-       
-        ToFloat: 1e9;
+        
+        Models get(stored_model): map T::Hash => NN_Model<T::Hash, T::Balance>;
+        ModelOwner get(model_owner): map T::AccountId => T::Hash;
 
-        Models get(model): map T::Hash => NN_Model<T::Hash, T::Balance);
-        ModelCreator get(model_owner): map T::Hash => Option<T::AccountId>;
-
-        ParticipantsArray get(participant): map (T::AccountId, u64) => T::Hash;
-        ParticipantsCount get(num_of_participants): map T::AccountId => u64;
-        ParticipantsIndex: map T::Hash => u64;
+        // ParticipantsArray get(participant): map (T::AccountId, u64) => T::Hash;
+        // ParticipantsCount get(num_of_participants): map T::AccountId => u64;
+        // ParticipantsIndex: map T::Hash => u64;
 
         Nonce: u64;
     }
@@ -35,12 +34,10 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-
         fn deposit_event<T>() = default;
 
-        fn create_model(origin, weights: vec![], intercept: vec![], learnRate: u64) -> Result {
+        fn create_model(origin, weight: u64, intercept: u64, learnRate: u64) -> Result {
             let sender = ensure_signed(origin)?;
-
             let nonce = <Nonce<T>>::get();
             let random_hash = (<system::Module<T>>::random_seed(), &sender, nonce)
                 .using_encoded(<T as system::Trait>::Hashing::hash);
@@ -49,48 +46,64 @@ decl_module! {
 
             let new_model = NN_Model {
                 id: random_hash,
-                Weights: weights,
+                Weights: weight,
                 Intercept: intercept,
                 LearningRate: learnRate,
+                Bounty: <T::Balance as As<u64>>::sa(0),
             };
 
             <Nonce<T>>::mutate(|n| *n += 1);
-            Self::mint(sender, random_hash, new_kitty)?;
-            Ok(())
-        }
-
-        fn update_weights(origin)-> Result {
+            Self::commit_initial_model(sender, random_hash, new_model)?;
 
             Ok(())
         }
+        fn update_model(origin, model_id: T::Hash, new_weight: u64, new_intercept: u64, new_learnRate: u64) -> Result {
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            model.Weights = new_weight;
+            model.Intercept = new_intercept;
+            model.LearningRate = new_learnRate;
+            //insert updated model
+            <Models<T>>::insert(&model_id, model);
 
+            Ok(())
+        }
     }
 }
 impl<T: Trait> Module<T> {
-    fn commit_initial_model(to: T::AccountId, model_id: T::Hash, model: NN_Model<T::Hash, T::AccountId>) -> Result {
+    fn commit_initial_model(creator: T::AccountId, model_id: T::Hash, model: NN_Model<T::Hash, T::Balance>) -> Result {
 
-        let number_of_participants = Self::num_of_participants();
-        let new_number_of_participants = number_of_participants.checked_add(1).ok_or("Overflow adding model")?;
+        // let number_of_participants = Self::num_of_participants();
+        // let new_number_of_participants = number_of_participants.checked_add(1).ok_or("Overflow adding model")?;
 
-        <Model<T>>::insert(model_id, model);
-        <ModelCreator<T>>::insert(model_id, &to);
+        <Models<T>>::insert(model_id, model);
+        <ModelOwner<T>>::insert(&creator, model_id);
         
-        <ParticipantsArray<T>>::insert((to.clone(), new_number_of_participants), model_id);
-        <ParticipantsCount<T>>::insert(&to, new_number_of_participants);
-        <ParticipantsIndex<T>>::insert(model_id, new_number_of_participants);
+        // <ParticipantsArray<T>>::insert((to.clone(), new_number_of_participants), model_id);
+        // <ParticipantsCount<T>>::insert(&to, new_number_of_participants);
+        // <ParticipantsIndex<T>>::insert(model_id, new_number_of_participants);
         
-        Self::deposit_event(RawEvent::Created(to, model_id));
-
+        Self::deposit_event(RawEvent::Created(creator, model_id));
         Ok(())
     }
+
+    // fn predict_model() -> Result{
+    //     Ok(())
+    // }
+
+    // fn update_model() ->Result{
+    //     Ok(())
+    // }
 }
 
 decl_event!(
     pub enum Event<T>
     where
         <T as system::Trait>::AccountId,
-        <T as system::Trait>::Hash
+        <T as system::Trait>::Hash,
+        <T as balances::Trait>::Balance
     {
         Created(AccountId, Hash),
+        BountySet(AccountId, Hash, Balance),
     }
 );
