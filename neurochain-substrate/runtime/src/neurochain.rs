@@ -29,6 +29,8 @@ decl_storage! {
         // ParticipantsIndex: map T::Hash => u64;
 
         Nonce: u64;
+        ToFloat get(to_float) : u64 = 1_000_000_000;
+        Prediction get(get_prediction): u64;
     }
 }
 
@@ -58,6 +60,8 @@ decl_module! {
             Ok(())
         }
         fn update_model(origin, model_id: T::Hash, new_weight: u64, new_intercept: u64, new_learnRate: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
             //Get model
             let mut model = Self::stored_model(&model_id);
             model.Weights = new_weight;
@@ -85,6 +89,56 @@ decl_module! {
 
             Ok(())
         }
+
+        fn train_model(origin, model_id: T::Hash, data: u64, classification: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            let to_float = Self::to_float();
+            let mut prediction = model.Intercept;
+            let mut _update = (data * model.LearningRate / to_float) as u64;
+            let mut new_weights: u64 = 0;
+            // Update weights
+            let mut _norm: u64 = 0;
+            if classification > 0 {
+                prediction = data * model.Weights + model.Intercept;
+                new_weights = model.Weights + _update;
+                _norm = _norm + data * data;
+            } else {
+                // sign -1
+                prediction = data * model.Weights + model.Intercept;
+                new_weights = model.Weights - _update;
+                _norm = _norm + data * data;
+            }
+
+            if prediction <= 0{
+                prediction = 0;
+            } else {
+                prediction = 1;
+            }
+            // Must be almost within `toFloat` of `toFloat*toFloat` because we only care about the first `toFloat` digits.
+            let mut oneSquared = to_float * to_float;
+            let offset = to_float * 100;
+            ensure!(oneSquared - offset < _norm && _norm < oneSquared + offset, "The provided data does not have a norm of 1.");
+
+            if prediction != classification {
+                model.Weights = new_weights;
+                <Models<T>>::insert(&model_id, model);
+            }
+            Ok(())
+        }
+
+        fn predict (origin, model_id: T::Hash, data: u64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            let m = model.Weights * data + model.Intercept;
+            
+            <Prediction<T>>::put(m);
+            Ok(())
+        }
     }
 }
 impl<T: Trait> Module<T> {
@@ -103,14 +157,6 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Created(creator, model_id));
         Ok(())
     }
-
-    // fn predict_model() -> Result{
-    //     Ok(())
-    // }
-
-    // fn update_model() ->Result{
-    //     Ok(())
-    // }
 }
 
 decl_event!(
@@ -118,9 +164,10 @@ decl_event!(
     where
         <T as system::Trait>::AccountId,
         <T as system::Trait>::Hash,
-        <T as balances::Trait>::Balance
+        <T as balances::Trait>::Balance,
     {
         Created(AccountId, Hash),
         BountySet(AccountId, Hash, Balance),
+        Predict(Hash, u64),
     }
 );
