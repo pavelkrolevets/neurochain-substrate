@@ -68,6 +68,23 @@ decl_module! {
 
             Ok(())
         }
+        fn set_bounty(origin, model_id: T::Hash, new_bounty: T::Balance) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+
+            let hash = Self::model_owner(&sender);
+            ensure!(hash == model_id, "You didnt deploy this model");
+
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            model.Bounty = new_bounty;
+
+           //insert updated model
+           <Models<T>>::insert(&model_id, model);
+            Self::deposit_event(RawEvent::BountySet(sender, model_id, new_bounty));
+
+            Ok(())
+        }
     }
 }
 impl<T: Trait> Module<T> {
