@@ -1,8 +1,8 @@
-use support::{decl_storage, decl_module, StorageValue, StorageMap, dispatch::Result, ensure, decl_event};
+use support::{decl_storage, decl_module, StorageValue, StorageMap, dispatch::Result, ensure, decl_event, StorageList};
 use system::ensure_signed;
 use runtime_primitives::traits::{As, Hash};
 use parity_codec::{Encode, Decode};
-use byteorder::{ByteOrder, LittleEndian, WriteBytesExt};
+use rstd::prelude::*;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -148,29 +148,29 @@ decl_module! {
             Ok(())
         }
 
-        fn predict (origin, model_id: T::Hash, data: Vec<i64>) -> Result {
-            let sender = ensure_signed(origin)?;
-            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+        // fn predict (origin, model_id: T::Hash, data: Vec<i64>) -> Result {
+        //     let sender = ensure_signed(origin)?;
+        //     ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
             
-            //Get model
-            let mut model = Self::stored_model(&model_id);
+        //     //Get model
+        //     let mut model = Self::stored_model(&model_id);
             
-            // Check weights lengh == data.lengh
-            ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
+        //     // Check weights lengh == data.lengh
+        //     ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
 
-            let mut m = model.Intercept;
-            for i in 0..model.Weights.len(){
-                m = m + model.Weights[i] * data[i];
-            }
-            if m <=0 {
-                m = 0;
-            } else {
-                m =1;
-            }
+        //     let mut m = model.Intercept;
+        //     for i in 0..model.Weights.len(){
+        //         m = m + model.Weights[i] * data[i];
+        //     }
+        //     if m <=0 {
+        //         m = 0;
+        //     } else {
+        //         m =1;
+        //     }
 
-            <Prediction<T>>::put(m);
-            Ok(())
-        }
+        //     <Prediction<T>>::put(m);
+        //     Ok(())
+        // }
         
         // fn train_model_backprop(origin, model_id: T::Hash, data: Vec<i64>, classification: i64) -> Result {
         //     let sender = ensure_signed(origin)?;
