@@ -39,12 +39,15 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event<T>() = default;
 
-        fn create_model(origin, weight: Vec<u8>, intercept: i64, learnRate: i64) -> Result {
+        fn create_model(origin, weights: Vec<u8>, intercept: i64, learnRate: i64) -> Result {
             let sender = ensure_signed(origin)?;
             let nonce = <Nonce<T>>::get();
             let random_hash = (<system::Module<T>>::random_seed(), &sender, nonce)
                 .using_encoded(<T as system::Trait>::Hashing::hash);
 
+            let weights_slice: &[u8] = &[1u8, 2u8, 3u8];
+            let weight: Vec<u8> = weights_slice.iter().cloned().collect();
+            
             ensure!(!<Models<T>>::exists(random_hash), "Model already exists!");
 
             let new_model = NN_Model {
@@ -92,61 +95,61 @@ decl_module! {
             Ok(())
         }
 
-        fn train_model(origin, model_id: T::Hash, data: Vec<u8>, classification: i64) -> Result {
-            let sender = ensure_signed(origin)?;
-            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
-            //Get model
-            let mut model = Self::stored_model(&model_id);
-            let to_float = Self::to_float();
-            // Check weights lengh == data.lengh
-            ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
+        // fn train_model(origin, model_id: T::Hash, data: Vec<u8>, classification: i64) -> Result {
+        //     let sender = ensure_signed(origin)?;
+        //     ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+        //     //Get model
+        //     let mut model = Self::stored_model(&model_id);
+        //     let to_float = Self::to_float();
+        //     // Check weights lengh == data.lengh
+        //     ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
 
-            let mut result: Vec<i64> = Vec::new();
-                for i in (0..data.len()).step_by(8) {
-                    result.push(LittleEndian::read_i64(&data[i..]));
-                }
-            let mut prediction = model.Intercept;
-            let mut new_weights: Vec<u8>;
-            let mut _norm: i64 = 0;
+        //     let mut result: Vec<i64> = Vec::new();
+        //         for i in (0..data.len()).step_by(8) {
+        //             result.push(LittleEndian::read_i64(&data[i..]));
+        //         }
+        //     let mut prediction = model.Intercept;
+        //     let mut new_weights: Vec<u8>;
+        //     let mut _norm: i64 = 0;
             
-            if classification > 0 {
-                for i in 0..model.Weights.len() {
-                    let dataum = i64::from_be_bytes(data[i]);
-                    let w = i64::from_be_bytes(model.Weights[i]);
-                    prediction = prediction + dataum * w;
-                    new_weights.push(w + (dataum * model.LearningRate / to_float) as i64);
-                    _norm = _norm + (dataum * dataum);
-                }
+        //     if classification > 0 {
+        //         for i in 0..model.Weights.len() {
+        //             let dataum = i64::from_be_bytes(data[i]);
+        //             let w = i64::from_be_bytes(model.Weights[i]);
+        //             prediction = prediction + dataum * w;
+        //             new_weights.push(w + (dataum * model.LearningRate / to_float) as i64);
+        //             _norm = _norm + (dataum * dataum);
+        //         }
                 
-            } else {
-                // sign -1
-                for i in 0..model.Weights.len() {
-                    let dataum = data[i];
-                    let w = model.Weights[i];
-                    prediction = prediction + dataum * w;
-                    new_weights.push(w - (dataum * model.LearningRate / to_float) as i64);
-                    _norm = _norm + (dataum * dataum);
-                }
-            }
+        //     } else {
+        //         // sign -1
+        //         for i in 0..model.Weights.len() {
+        //             let dataum = data[i];
+        //             let w = model.Weights[i];
+        //             prediction = prediction + dataum * w;
+        //             new_weights.push(w - (dataum * model.LearningRate / to_float) as i64);
+        //             _norm = _norm + (dataum * dataum);
+        //         }
+        //     }
 
-            if prediction <= 0{
-                prediction = 0;
-            } else {
-                prediction = 1;
-            }
+        //     if prediction <= 0{
+        //         prediction = 0;
+        //     } else {
+        //         prediction = 1;
+        //     }
             
-            //Must be almost within `toFloat` of `toFloat*toFloat` because we only care about the first `toFloat` digits.
+        //     //Must be almost within `toFloat` of `toFloat*toFloat` because we only care about the first `toFloat` digits.
 
-            let mut oneSquared = to_float * to_float;
-            let offset = to_float * 100;
-            ensure!(oneSquared - offset < _norm && _norm < oneSquared + offset, "The provided data does not have a norm of 1.");
+        //     let mut oneSquared = to_float * to_float;
+        //     let offset = to_float * 100;
+        //     ensure!(oneSquared - offset < _norm && _norm < oneSquared + offset, "The provided data does not have a norm of 1.");
 
-            if prediction != classification {
-                model.Weights = new_weights;
-                <Models<T>>::insert(&model_id, model);
-            }
-            Ok(())
-        }
+        //     if prediction != classification {
+        //         model.Weights = new_weights;
+        //         <Models<T>>::insert(&model_id, model);
+        //     }
+        //     Ok(())
+        // }
 
         // fn predict (origin, model_id: T::Hash, data: Vec<i64>) -> Result {
         //     let sender = ensure_signed(origin)?;
