@@ -45,14 +45,14 @@ decl_module! {
             let random_hash = (<system::Module<T>>::random_seed(), &sender, nonce)
                 .using_encoded(<T as system::Trait>::Hashing::hash);
 
-            let weights_slice: &[u8] = &[1u8, 2u8, 3u8];
-            let weight: Vec<u8> = weights_slice.iter().cloned().collect();
+            // let weights_slice: &[u8] = &[1u8, 1u8, 1u8];
+            // let weight: Vec<u8> = weights_slice.iter().cloned().collect();
             
             ensure!(!<Models<T>>::exists(random_hash), "Model already exists!");
 
             let new_model = NN_Model {
                 id: random_hash,
-                Weights: weight,
+                Weights: weights,
                 Intercept: intercept,
                 LearningRate: learnRate,
                 Loss: 0 as i64,
@@ -95,116 +95,128 @@ decl_module! {
             Ok(())
         }
 
-        // fn train_model(origin, model_id: T::Hash, data: Vec<u8>, classification: i64) -> Result {
-        //     let sender = ensure_signed(origin)?;
-        //     ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
-        //     //Get model
-        //     let mut model = Self::stored_model(&model_id);
-        //     let to_float = Self::to_float();
-        //     // Check weights lengh == data.lengh
-        //     ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
+        fn train_model(origin, model_id: T::Hash, data: Vec<u8>, classification: i64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            let to_float = Self::to_float();
+            // Check weights lengh == data.lengh
+            ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
 
-        //     let mut result: Vec<i64> = Vec::new();
-        //         for i in (0..data.len()).step_by(8) {
-        //             result.push(LittleEndian::read_i64(&data[i..]));
-        //         }
-        //     let mut prediction = model.Intercept;
-        //     let mut new_weights: Vec<u8>;
-        //     let mut _norm: i64 = 0;
+            let mut prediction = model.Intercept;
+            let mut new_weights: Vec<u8> = Vec::new();
+            let mut _norm: i64 = 0;
             
-        //     if classification > 0 {
-        //         for i in 0..model.Weights.len() {
-        //             let dataum = i64::from_be_bytes(data[i]);
-        //             let w = i64::from_be_bytes(model.Weights[i]);
-        //             prediction = prediction + dataum * w;
-        //             new_weights.push(w + (dataum * model.LearningRate / to_float) as i64);
-        //             _norm = _norm + (dataum * dataum);
-        //         }
+            if classification > 0 {
+                for i in 0..model.Weights.len() {
+                    let dataum = data[i] as i64;
+                    let w = model.Weights[i] as i64;
+                    prediction = prediction + dataum * w;
+                    new_weights.push((w + (dataum * model.LearningRate / to_float) as i64) as u8);
+                    _norm = _norm + (dataum * dataum);
+                }
                 
-        //     } else {
-        //         // sign -1
-        //         for i in 0..model.Weights.len() {
-        //             let dataum = data[i];
-        //             let w = model.Weights[i];
-        //             prediction = prediction + dataum * w;
-        //             new_weights.push(w - (dataum * model.LearningRate / to_float) as i64);
-        //             _norm = _norm + (dataum * dataum);
-        //         }
-        //     }
+            } else {
+                // sign -1
+                for i in 0..model.Weights.len() {
+                    let dataum = data[i] as i64;
+                    let w = model.Weights[i] as i64;
+                    prediction = prediction + dataum * w;
+                    new_weights.push((w - (dataum * model.LearningRate / to_float) as i64) as u8);
+                    _norm = _norm + (dataum * dataum);
+                }
+            }
 
-        //     if prediction <= 0{
-        //         prediction = 0;
-        //     } else {
-        //         prediction = 1;
-        //     }
+            if prediction <= 0{
+                prediction = 0;
+            } else {
+                prediction = 1;
+            }
             
-        //     //Must be almost within `toFloat` of `toFloat*toFloat` because we only care about the first `toFloat` digits.
+            //Must be almost within `toFloat` of `toFloat*toFloat` because we only care about the first `toFloat` digits.
 
-        //     let mut oneSquared = to_float * to_float;
-        //     let offset = to_float * 100;
-        //     ensure!(oneSquared - offset < _norm && _norm < oneSquared + offset, "The provided data does not have a norm of 1.");
+            let mut oneSquared = to_float * to_float;
+            let offset = to_float * 100;
+            ensure!(oneSquared - offset < _norm && _norm < oneSquared + offset, "The provided data does not have a norm of 1.");
 
-        //     if prediction != classification {
-        //         model.Weights = new_weights;
-        //         <Models<T>>::insert(&model_id, model);
-        //     }
-        //     Ok(())
-        // }
+            if prediction != classification {
+                model.Weights = new_weights;
+                <Models<T>>::insert(&model_id, model);
+            }
+            Ok(())
+        }
 
-        // fn predict (origin, model_id: T::Hash, data: Vec<i64>) -> Result {
-        //     let sender = ensure_signed(origin)?;
-        //     ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
+        fn predict (origin, model_id: T::Hash, data: Vec<u8>) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
             
-        //     //Get model
-        //     let mut model = Self::stored_model(&model_id);
-            
-        //     // Check weights lengh == data.lengh
-        //     ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            // let weights_slice = &model.Weights[..];
+            // let data_slice = &data[..];
 
-        //     let mut m = model.Intercept;
-        //     for i in 0..model.Weights.len(){
-        //         m = m + model.Weights[i] * data[i];
-        //     }
-        //     if m <=0 {
-        //         m = 0;
-        //     } else {
-        //         m =1;
-        //     }
+            // Check weights lengh == data.lengh
+            ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
 
-        //     <Prediction<T>>::put(m);
-        //     Ok(())
-        // }
+            let mut m = model.Intercept;
+            for i in 0..model.Weights.len(){
+                m = m + model.Weights[i] as i64 * data[i] as i64;
+            }
+
+            // if m <=0 {
+            //     m = 0;
+            // } else {
+            //     m =1;
+            // }
+
+            <Prediction<T>>::put(m);
+
+            Ok(())
+        }
         
-        // fn train_model_backprop(origin, model_id: T::Hash, data: Vec<i64>, classification: i64) -> Result {
-        //     let sender = ensure_signed(origin)?;
-        //     ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
-        //     //Get model
-        //     let mut model = Self::stored_model(&model_id);
-        //     let to_float = Self::to_float();
-        //     let mut prediction = data * model.Weights + model.Intercept;
-        //     let mut _update = (data * model.LearningRate / to_float) as i64;
-        //     let mut new_weights: i64 = 0;
-        //     let mut total_loss =  (classification - prediction).pow(2)/2 as i64;
-        //     let mut _norm: i64 = 0;
-        //     // Compute gradients
-        //     let  d_total_loss_d_out = - (prediction - classification); 
-        //     let  d_out_d_w = data;
-        //     let  d_total_loss_d_w = d_total_loss_d_out * d_out_d_w; //using chain rule
+        fn train_model_backprop(origin, model_id: T::Hash, data: Vec<u8>, target: i64) -> Result {
+            let sender = ensure_signed(origin)?;
+            ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
             
-        //     // Update weights
-        //     new_weights = new_weights - model.LearningRate * d_total_loss_d_w;
+            //Get model
+            let mut model = Self::stored_model(&model_id);
+            let to_float = Self::to_float();
+            
+            // Compute forward propagation
+            let mut prediction: i64 = model.Intercept; 
+            for i in 0..model.Weights.len(){
+                prediction = prediction + data[i] as i64 * model.Weights[i] as i64;
+            }
+            // let mut _update = (data * model.LearningRate / to_float) as i64;
+            let mut updated_weights: Vec<u8> = Vec::new();
+            let mut total_loss =  (target - prediction).pow(2)/2 as i64;
+            
+            // Compute gradients
+            let  d_total_loss_d_out = - (prediction - target); 
 
-        //     //Compute new loss
-        //     let new_loss = (classification - (data * new_weights + model.Intercept)).pow(2)/2 as i64;
+            for i in 0..model.Weights.len() {
+                let  d_out_d_w = data[i] as i64;
+                let  d_total_loss_d_w = d_total_loss_d_out * d_out_d_w; //using chain rule
+                // Update weights
+                updated_weights.push((model.Weights[i] as i64 - model.LearningRate * d_total_loss_d_w) as u8);
+            }
 
-        //     // Commit new model
+            //Compute new loss
+            let mut new_prediction: i64 = 0;
+            for i in 0..updated_weights.len() {
+                new_prediction = new_prediction + data[i] as i64 * updated_weights[i] as i64;
+            }
+            let new_loss = (target - new_prediction).pow(2)/2 as i64;
 
-        //     model.Weights = new_weights;
-        //     model.Loss = new_weights;
-        //     <Models<T>>::insert(&model_id, model);
+            // Commit new model
 
-        //     Ok(())
-        // }
+            model.Weights = updated_weights;
+            model.Loss = new_loss;
+            <Models<T>>::insert(&model_id, model);
+
+            Ok(())
+        }
 
     }
 }
