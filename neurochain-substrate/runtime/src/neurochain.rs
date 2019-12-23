@@ -217,7 +217,6 @@ decl_module! {
 
             Ok(())
         }
-
     }
 }
 impl<T: Trait> Module<T> {
