@@ -1,3 +1,4 @@
+use ndarray::*;
 use support::{decl_storage, decl_module, StorageValue, StorageMap, dispatch::Result, ensure, decl_event, StorageList};
 use system::ensure_signed;
 use runtime_primitives::traits::{As, Hash};
@@ -175,7 +176,7 @@ decl_module! {
             Ok(())
         }
         
-        fn train_model_backprop(origin, model_id: T::Hash, data: Vec<u8>, target: i64) -> Result {
+        fn train_model_regression(origin, model_id: T::Hash, data: Vec<u8>, target: i64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
             
