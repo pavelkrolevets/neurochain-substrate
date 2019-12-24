@@ -151,20 +151,25 @@ decl_module! {
         fn predict (origin, model_id: T::Hash, data: Vec<u8>) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
-            
+            let to_float: i64 = <ToFloat<T>>::get();
+
             //Get model
             let mut model = Self::stored_model(&model_id);
-            // let weights_slice = &model.Weights[..];
-            // let data_slice = &data[..];
 
             // Check weights lengh == data.lengh
             ensure!(model.Weights.len() == data.len(), "Data provided dont have same dimentions with weights.");
 
-            let mut m = model.Intercept;
+            let mut m = model.Intercept ;
             for i in 0..model.Weights.len(){
                 m = m + model.Weights[i] as i64 * data[i] as i64;
             }
-
+            
+            // Convert float data to int
+            let mut int_data = data; 
+            for i in 0..int_data.len(){
+                int_data[i] = int_data[i] * to_float as u8;
+            }
+            
             // if m <=0 {
             //     m = 0;
             // } else {
@@ -176,46 +181,55 @@ decl_module! {
             Ok(())
         }
         
-        fn train_model_regression(origin, model_id: T::Hash, data: Vec<u8>, target: i64) -> Result {
+        fn train_model_regression(origin, model_id: T::Hash, data: Vec<u8>, Y: i64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
-            
+            let to_float: i64 = <ToFloat<T>>::get();
+            // Convert float data to int
+            let mut int_data = data; 
+            for i in 0..int_data.len(){
+                int_data[i] = int_data[i] * to_float as u8;
+            }
+            let mut int_Y = Y * to_float;
+
             //Get model
             let mut model = Self::stored_model(&model_id);
             let to_float = Self::to_float();
+            let mut error: i64 = 0;
             
-            // Compute forward propagation
-            let mut prediction: i64 = model.Intercept; 
+            let mut prediction: i64 = model.Intercept * to_float;
+            // Compute error
             for i in 0..model.Weights.len(){
-                prediction = prediction + data[i] as i64 * model.Weights[i] as i64;
+                prediction += int_data[i] as i64 * model.Weights[i] as i64;
             }
-            // let mut _update = (data * model.LearningRate / to_float) as i64;
+            error = (prediction - int_Y).pow(2)/2 as i64;
+
+            // Compute gradients and update weights
             let mut updated_weights: Vec<u8> = Vec::new();
-            let mut total_loss =  (target - prediction).pow(2)/2 as i64;
+
+            let mut w: i64 = 0;
+            for i in 0..model.Weights.len(){
+                w = w - (prediction - int_Y) / model.LearningRate * int_data[i] as i64;
+                updated_weights.push(w as u8);
+            }
             
-            // Compute gradients
-            let  d_total_loss_d_out = - (prediction - target); 
+            // Compute gradients  and update intercept
+            let mut updated_intercept: i64 = model.Intercept * to_float;
+            updated_intercept -= (prediction - int_Y) / model.LearningRate;
 
-            for i in 0..model.Weights.len() {
-                let  d_out_d_w = data[i] as i64;
-                let  d_total_loss_d_w = d_total_loss_d_out * d_out_d_w; //using chain rule
-                // Update weights
-                updated_weights.push((model.Weights[i] as i64 - model.LearningRate * d_total_loss_d_w) as u8);
-            }
-
-            //Compute new loss
-            let mut new_prediction: i64 = 0;
+            //Compute new error
+            let mut new_prediction: i64 = updated_intercept;
             for i in 0..updated_weights.len() {
-                new_prediction = new_prediction + data[i] as i64 * updated_weights[i] as i64;
+                new_prediction +=  int_data[i] as i64 * updated_weights[i] as i64;
             }
-            let new_loss = (target - new_prediction).pow(2)/2 as i64;
+            let new_loss = (new_prediction - int_Y).pow(2)/2 as i64;
 
             // Commit new model
 
             model.Weights = updated_weights;
             model.Loss = new_loss;
+            model.Intercept = updated_intercept / to_float;
             <Models<T>>::insert(&model_id, model);
-
             Ok(())
         }
     }
