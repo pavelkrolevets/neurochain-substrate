@@ -154,6 +154,6 @@ edition = '2018'
 name = 'neurochain-substrate-runtime'
 version = '1.0.0'
 
-[dependencies.ndarray]
-default-features = false
-version = '0.13.0'
+# [dependencies.ndarray]
+# default-features = false
+# version = '0.13.0'
