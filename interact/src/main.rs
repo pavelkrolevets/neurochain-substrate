@@ -6,6 +6,15 @@ use ndarray::{array, Array2, Axis};
 
 use std::num::ParseIntError;
 
+extern crate mnist;
+extern crate rulinalg;
+extern crate rand;
+extern crate rand_distr;
+
+use rand::distributions::{Normal, Distribution};
+use mnist::{Mnist, MnistBuilder};
+use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
+
 fn read_csv() -> Result<(), Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b';')
@@ -117,22 +126,81 @@ fn main() {
     // println!("Dot: {:?}", a.dot(&b));
 
 
-   // READ MNIST DATASET TO ARRAY
-   let mut X_train: Vec<Vec<f64>> = Vec::new();
+//   // READ MNIST DATASET TO ARRAY
+//   let mut X_train: Vec<Vec<f64>> = Vec::new();
+//
+//   let mut rdr = csv::ReaderBuilder::new()
+//        .delimiter(b',')
+//        .from_reader(io::stdin());
+//    let mut counter = 0;
+//    for result in rdr.records() {
+//        counter += 1;
+//        let record = result.unwrap();
+//        // println!("{:?}", record);
+//        let mut record_as_vec: Vec<f64> = Vec::new();
+//        for field in record.iter(){
+//          let mut val: f64 = field.parse().unwrap();
+//            val /= 255f64;
+//            &record_as_vec.push(val);
+//        }
+//        println!("Parsing record {:?}", counter);
+//        X_train.push(record_as_vec);
+//
+//        if counter == 10000 {
+//            break
+//        }
+//    }
+//    println!(" Finished parsing X_train");
 
-   let mut rdr = csv::ReaderBuilder::new()
-        .delimiter(b',')
-        .from_reader(io::stdin());
-    for result in rdr.records() {
-        let record = result.unwrap();
-        // println!("{:?}", record);
-        let mut record_as_vec: Vec<f64> = Vec::new();
-        for field in record.iter(){
-            &record_as_vec.push(field.parse().unwrap());
-        }
-        println!("{:?}", &record_as_vec);
-        X_train.push(record_as_vec);
+    let (trn_size, rows, cols) = (50_000, 28, 28);
+    // Deconstruct the returned Mnist struct.
+    let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
+        .label_format_digit()
+        .training_set_length(trn_size)
+        .validation_set_length(10_000)
+        .test_set_length(10_000)
+        .finalize();
+
+    // Get the label of the first digit.
+    let first_label = trn_lbl[0];
+    println!("The first digit is a {}.", first_label);
+
+    //Model parameters
+    let layer_size1 = 10;
+    let layer_size2 = 10;
+    let K = 10;
+
+
+
+    // Convert the flattened training images vector to a matrix.
+    let trn_img = Matrix::new(trn_size as usize, (cols * rows) as usize, trn_img);
+
+    ////////////////////////////////
+    // Initialize weights and biases
+    ////////////////////////////////
+
+    // Random vector for weight initialization mean 0, standard deviation 1
+    let normal = rand_distr::Normal::new(0.0, 1.0).unwrap();
+    let mut w1_v: Vec<f64> = vec![0.0; (cols * rows) * layer_size1];
+    for x in w1_v.iter_mut() {
+        *x = normal.sample(&mut rand::thread_rng())
     }
-    println!("{:?}", X_train);
+    let W1 = Matrix::new((cols * rows) as usize, layer_size1 as usize, w1_v);
+
+    let normal = Normal::new(0.0, 1.0);
+    let mut b1_v: Vec<f64> = vec![0.0; (cols * rows) * layer_size1];
+    for x in b1_v.iter_mut() {
+        *x = normal.sample(&mut rand::thread_rng())
+    }
+    let B1 = Matrix::new(0 as usize, layer_size1 as usize, b1_v);
+    println!("{:?}", B1);
+
+
+    // Train model
+//    for i in 0..10000{
+//
+//
+//
+//    }
 
 }
