@@ -1,4 +1,3 @@
-// use ndarray::*;
 use support::{decl_storage, decl_module, StorageValue, StorageMap, dispatch::Result, ensure, decl_event, StorageList};
 use system::ensure_signed;
 use runtime_primitives::traits::{As, Hash};
@@ -9,11 +8,11 @@ use rstd::prelude::*;
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct NN_Model<Hash, Balance> {
     id: Hash,
-    Weights: Vec<u8>,
-    Intercept: i64,
-    LearningRate: i64,
-    Loss: i64,
-    Bounty: Balance,
+    weights: Vec<u8>,
+    intercept: i64,
+    learningRate: i64,
+    loss: i64,
+    bounty: Balance,
 }
 
 pub trait Trait: balances::Trait {
@@ -222,8 +221,8 @@ impl<T: Trait> Module<T> {
         // let number_of_participants = Self::num_of_participants();
         // let new_number_of_participants = number_of_participants.checked_add(1).ok_or("Overflow adding model")?;
 
-        <Models<T>>::insert(model_id, model);
-        <ModelOwner<T>>::insert(&creator, model_id);
+        <Models<T>>::insert(&model_id, model);
+        <ModelOwner<T>>::insert(&creator, &model_id);
         
         // <ParticipantsArray<T>>::insert((to.clone(), new_number_of_participants), model_id);
         // <ParticipantsCount<T>>::insert(&to, new_number_of_participants);

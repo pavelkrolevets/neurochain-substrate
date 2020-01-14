@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 hex = "0.4.0"
-ndarray = "0.13.0"
 csv = "1.1"
 mnist = "0.4.0"
 rulinalg = "0.4.2"
