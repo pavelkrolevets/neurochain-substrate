@@ -8,15 +8,37 @@ use rstd::prelude::*;
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct NN_Model<Hash, Balance> {
     id: Hash,
-    weights: Vec<u8>,
-    intercept: i64,
-    learningRate: i64,
-    loss: i64,
-    bounty: Balance,
+    Weights: Vec<u8>,
+    Intercept: i64,
+    LearningRate: i64,
+    Loss: i64,
+    Bounty: Balance,
 }
 
 pub trait Trait: balances::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+}
+
+pub fn matrix_dot(a: Vec<Vec<i64>>, b: Vec<Vec<i64>>)-> Vec<Vec<i64>>{
+    // get sizes
+    let (a_row_len, a_col_len, b_row_len, b_col_len) = (a.len(), a[0].len(), b.len(), b[0].len());
+    // check if its possible to do dot multiplication
+    if a_col_len != b_row_len {
+        panic!("Matricies are not compatible");
+    }
+
+    let mut result: Vec<Vec<i64>> = vec!(vec!(0; b_col_len); a_row_len); 
+    for i in 0..a_row_len {
+        for j in 0..b_col_len{
+            let mut sum: i64 = 0;
+            for k in 0..a_col_len {
+                sum += a[i][k] * b[k][j];
+            // println!("i,j,k {}{}{}", i,j,k);
+            }
+        result[i][j] = sum;
+        }
+    }
+    result   
 }
 
 decl_storage! {
@@ -32,6 +54,7 @@ decl_storage! {
         Nonce: u64;
         ToFloat get(to_float) : i64 = 1_000_000_000;
         Prediction get(get_prediction): i64;
+        Test: Vec<Vec<u8>>;
     }
 }
 
@@ -169,6 +192,22 @@ decl_module! {
             Ok(())
         }
         
+        fn multiply_matrix(origin, data: Vec<u8>) -> Result {
+            let mut mtx1: Vec<Vec<u8>> = vec!(vec!(0; 28); 28);
+            let mut counter = 0 as usize;
+            for i in 0..27 {
+                for j in 0..27{
+                    counter = (i*j) as usize;
+                    mtx1[i][j] = data[counter];
+                }
+            }
+
+            // let result = matrix_dot(matrix1, matrix2);
+            // println!("Matrix {:?}", result[0]);
+            <Test<T>>::put(mtx1);
+            Ok(())
+        }
+
         fn train_model_regression(origin, model_id: T::Hash, data: Vec<u8>, Y: i64) -> Result {
             let sender = ensure_signed(origin)?;
             ensure!(<Models<T>>::exists(model_id), "This model doesnt exit");
