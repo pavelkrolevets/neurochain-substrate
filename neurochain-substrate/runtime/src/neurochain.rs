@@ -1,6 +1,7 @@
 use support::{decl_storage, decl_module, StorageValue, StorageMap, dispatch::Result, ensure, decl_event, StorageList};
 use system::ensure_signed;
 use runtime_primitives::traits::{As, Hash};
+use runtime_primitives::{Perbill, Permill};
 use parity_codec::{Encode, Decode};
 use rstd::prelude::*;
 
@@ -192,19 +193,10 @@ decl_module! {
             Ok(())
         }
         
-        fn multiply_matrix(origin, data: Vec<u8>) -> Result {
-            let mut mtx1: Vec<Vec<u8>> = vec!(vec!(0; 28); 28);
-            let mut counter = 0 as usize;
-            for i in 0..27 {
-                for j in 0..27{
-                    counter = (i*j) as usize;
-                    mtx1[i][j] = data[counter];
-                }
-            }
-
-            // let result = matrix_dot(matrix1, matrix2);
-            // println!("Matrix {:?}", result[0]);
-            <Test<T>>::put(mtx1);
+        fn multiply_float(origin) -> Result {
+           
+           
+            <Test<T>>::put(c);
             Ok(())
         }
 
