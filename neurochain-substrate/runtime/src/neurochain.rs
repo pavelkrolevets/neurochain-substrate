@@ -193,12 +193,6 @@ decl_module! {
             Ok(())
         }
         
-        fn multiply_float(origin) -> Result {
-           
-           
-            <Test<T>>::put(c);
-            Ok(())
-        }
 
         fn train_model_regression(origin, model_id: T::Hash, data: Vec<u8>, Y: i64) -> Result {
             let sender = ensure_signed(origin)?;
